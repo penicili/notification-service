@@ -1,0 +1,30 @@
+# Email notification service
+
+Mailer microservice berbasis Express, Nodemailer, dan in-memory queue.
+
+## Menjalankan
+
+Salin `src/.env.example` ke environment aplikasi, lalu isi konfigurasi SMTP.
+
+```bash
+npm run dev
+```
+
+## API
+
+`POST /notifications`
+
+```json
+{
+  "to": "recipient@example.com",
+  "subject": "Welcome",
+  "text": "Welcome to the service"
+}
+```
+
+Request diterima dengan status `202` setelah masuk queue. Queue saat ini hanya in-memory, sehingga item yang belum terkirim hilang ketika proses berhenti.
+
+```bash
+npm run build
+npm start
+```
