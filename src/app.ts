@@ -1,8 +1,11 @@
 import express from "express";
+import { pinoHttp } from "pino-http";
+import { logger } from "./logger.js";
 import { notificationRouter } from "./notification/notification.routes.js";
 
 const app = express();
 
+app.use(pinoHttp({ logger }));
 app.use(express.json());
 
 app.get("/health", (_request, response) => {
@@ -14,13 +17,17 @@ app.get("/health", (_request, response) => {
 
 app.use("/notifications", notificationRouter);
 
-app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+app.use((_request, response) => {
+  response.status(404).json({ error: "Not found" });
+});
+
+app.use((error: unknown, request: express.Request, response: express.Response, _next: express.NextFunction) => {
   if (error instanceof SyntaxError && "body" in error) {
     response.status(400).json({ error: "Invalid JSON payload" });
     return;
   }
 
-  console.error(error);
+  request.log.error({ err: error }, "Unhandled error");
   response.status(500).json({ error: "Internal server error" });
 });
 

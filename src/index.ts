@@ -1,6 +1,7 @@
 import app from "./app.js";
 import { config } from "./config.js";
+import { logger } from "./logger.js";
 
 app.listen(config.port, config.host, () => {
-  console.log(`Notification service listening on http://${config.host}:${config.port}`);
+  logger.info({ host: config.host, port: config.port }, "Notification service listening");
 });

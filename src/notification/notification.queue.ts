@@ -34,9 +34,9 @@ export class NotificationQueue {
 
         try {
           await this.processor(notification);
-          logger.info("Notification sent", { id: notification.id });
+          logger.info({ id: notification.id }, "Notification sent");
         } catch (error) {
-          logger.error("Notification failed", { id: notification.id, error });
+          logger.error({ id: notification.id, err: error }, "Notification failed");
         }
       }
     } finally {

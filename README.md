@@ -28,3 +28,17 @@ Request diterima dengan status `202` setelah masuk queue. Queue saat ini hanya i
 npm run build
 npm start
 ```
+
+## Docker
+
+```bash
+docker build -t notification-service .
+docker run --rm -p 3000:3000 \
+  -e SMTP_HOST=smtp.example.com \
+  -e SMTP_PORT=587 \
+  -e SMTP_SECURE=false \
+  -e MAIL_FROM=no-reply@example.com \
+  notification-service
+```
+
+Image sudah menyertakan `HEALTHCHECK` ke `/health`. Level log dapat diatur lewat `LOG_LEVEL` (default `info`).
