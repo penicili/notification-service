@@ -20,3 +20,18 @@ test("rejects notifications without content", () => {
     ValidationError,
   );
 });
+
+test("sends an email through SMTP", {
+  skip: !process.env.SMTP_TEST_TO,
+}, async () => {
+  const { MailerService } = await import("./mailer.service.js");
+  const mailer = new MailerService();
+
+  await assert.doesNotReject(
+    mailer.send({
+      to: [process.env.SMTP_TEST_TO!],
+      subject: "Notification service test",
+      text: `This email was sent by the MailerService test at. ${new Date}`,
+    }),
+  );
+});

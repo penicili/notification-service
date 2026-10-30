@@ -14,7 +14,7 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "test": "node --import tsx --test src/notification/notification.test.ts",
+    "test": "node --env-file=.env --import tsx --test src/notification/notification.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -29,5 +29,8 @@
     "nodemailer": "^10.3.0",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }
