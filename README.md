@@ -47,3 +47,19 @@ Image sudah menyertakan `HEALTHCHECK` ke `/health`. Level log dapat diatur lewat
 --- 
 # Kube
 - namespace: notif
+- akses UI mailtrap
+```
+kubectl port-forward service/mailtrap 8025:8025
+```
+- test endpoint via curl (POST)
+```
+curl -i -X POST \
+  --resolve notification.test.com:80:127.0.0.1 \
+  http://notification.test.com/notifications \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "to": "test@example.com",
+    "subject": "Test notification",
+    "text": "Tes notif"
+  }'
+```

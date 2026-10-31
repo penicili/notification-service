@@ -14,9 +14,11 @@ spec:
       labels:
         app: notification
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: notification-app
-          image: ghcr.io/penicili/notification-service:latest
+          image: ghcr.io/penicili/notification-service:sha-630a495
           imagePullPolicy: Always
           ports:
             - name: http
