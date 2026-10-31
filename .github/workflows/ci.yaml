@@ -44,8 +44,7 @@ jobs:
       - run: npm run build
       - name: Run tests
         env:
-          # CI does not have an SMTP server. The integration test is skipped
-          # unless SMTP_TEST_TO is set.
+          # Skip integration testing (perlu SMTP)
           SMTP_TEST_TO: ""
         run: npm test
 
