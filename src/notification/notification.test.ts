@@ -21,6 +21,8 @@ test("rejects notifications without content", () => {
   );
 });
 
+// Optional integration test. It only runs when SMTP_TEST_TO is set and a
+// reachable SMTP server is configured. CI intentionally leaves it unset.
 test("sends an email through SMTP", {
   skip: !process.env.SMTP_TEST_TO,
 }, async () => {
