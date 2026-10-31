@@ -42,3 +42,8 @@ docker run --rm -p 3000:3000 \
 ```
 
 Image sudah menyertakan `HEALTHCHECK` ke `/health`. Level log dapat diatur lewat `LOG_LEVEL` (default `info`).
+
+
+--- 
+# Kube
+- namespace: notif
