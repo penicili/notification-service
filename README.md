@@ -2,9 +2,9 @@
 
 Mailer microservice berbasis Express, Nodemailer, dan in-memory queue.
 
-## Menjalankan
+## Run
 
-Salin `src/.env.example` ke environment aplikasi, lalu isi konfigurasi SMTP.
+Copy `src/.env.example` ke environment aplikasi, lalu isi konfigurasi SMTP/mailtrap.
 
 ```bash
 npm run dev
