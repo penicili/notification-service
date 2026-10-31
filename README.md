@@ -4,7 +4,7 @@ Mailer microservice berbasis Express, Nodemailer, dan in-memory queue.
 
 ## Run
 
-Copy `src/.env.example` ke environment aplikasi, lalu isi konfigurasi SMTP/mailtrap.
+Copy `src/.env.example` ke environment aplikasi, lalu isi konfigurasi SMTP/mailpit.
 
 ```bash
 npm run dev
@@ -47,11 +47,11 @@ Image sudah menyertakan `HEALTHCHECK` ke `/health`. Level log dapat diatur lewat
 --- 
 # Kube
 - namespace: notif
-- akses UI mailtrap
+- Forward UI mailpit
 ```
-kubectl port-forward service/mailtrap 8025:8025
+kubectl port-forward service/mailtrap 8025:8025 -n notif
 ```
-- test endpoint via curl (POST)
+- Test post endpoint via curl (POST)
 ```
 curl -i -X POST \
   --resolve notification.test.com:80:127.0.0.1 \

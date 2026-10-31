@@ -5,7 +5,7 @@ metadata:
 data:
   NODE_ENV: production
   PORT: "3000"
-  SMTP_HOST: mailtrap
+  SMTP_HOST: mailpit
   SMTP_PORT: "1025"
   SMTP_SECURE: "false"
   MAIL_FROM: no-reply@example.com

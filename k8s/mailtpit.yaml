@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mailtrap
+  name: mailpit
   labels:
-    app: mailtrap
+    app: mailpit
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mailtrap
+      app: mailpit
   template:
     metadata:
       labels:
-        app: mailtrap
+        app: mailpit
     spec:
       containers:
-        - name: mailtrap
+        - name: mailpit
           image: axllent/mailpit:v1.27
           ports:
             - name: smtp
@@ -40,12 +40,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mailtrap
+  name: mailpit
   labels:
-    app: mailtrap
+    app: mailpit
 spec:
   selector:
-    app: mailtrap
+    app: mailpit
   ports:
     - name: smtp
       port: 1025
