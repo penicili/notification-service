@@ -2,38 +2,71 @@ name: cd
 
 on:
   workflow_run:
-    workflows: ci
-    types: completed
-    branches: master
+    workflows:
+      - ci
+    types:
+      - completed
+    branches:
+      - master
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   cd:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: self-hosted
+    runs-on:
+      - self-hosted
+      - notification-service
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out repository
+        uses: actions/checkout@v7
         with:
           ref: master
-      - 
-        name: Set image tag
+
+      - name: Promote image tag
         env:
-          VERSION: v4.44.3
-          PLATFORM: linux_amd64
+          YQ_VERSION: v4.44.3
+          YQ_PLATFORM: linux_amd64
         run: |
-          curl -L "https://github.com/mikefarah/yq/releases/download/${VERSION}/yq_${PLATFORM}" -o /tmp/yq
-          chmod +x /tmp/yq
+          set -euo pipefail
+
           TAG="sha-$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)"
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+
+          curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_${YQ_PLATFORM}" -o /tmp/yq
+          chmod +x /tmp/yq
           /tmp/yq -i ".image.tag = \"${TAG}\"" helm/notification-service/values.yaml
-      - 
-        name: Install argocd cli
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add helm/notification-service/values.yaml
+
+          if git diff --cached --quiet; then
+            echo "Image tag already ${TAG}; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(cd): deploy image ${TAG}"
+          git push origin HEAD:master
+
+      - name: Install Argo CD CLI
         run: |
-          curl -ksSL -o /tmp/argocd https://argocd-server.argocd/download/argocd-linux-amd64
+          set -euo pipefail
+          curl -kfsSL -o /tmp/argocd https://argocd-server.argocd/download/argocd-linux-amd64
           chmod +x /tmp/argocd
           sudo mv /tmp/argocd /usr/local/bin/argocd
-      -
-        name: ArgoCD login sync
+
+      - name: Sync and wait for Argo CD
+        env:
+          ARGOCD_PASSWORD: ${{ secrets.ARGOCD_CLI_PASSWORD }}
         run: |
-          argocd login argocd-server.argocd --insecure --grpc-web --username admin --password ${{ secrets.ARGOCD_CLI_PASSWORD }}
-          argocd app sync notification-service
+          set -euo pipefail
+          argocd login argocd-server.argocd --insecure --grpc-web --username admin --password "$ARGOCD_PASSWORD"
+          argocd app get notification-service --refresh
+          argocd app sync notification-service --prune
+          argocd app wait notification-service --health --timeout 300
