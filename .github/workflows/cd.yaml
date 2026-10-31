@@ -61,11 +61,12 @@ jobs:
           chmod +x /tmp/argocd
           sudo mv /tmp/argocd /usr/local/bin/argocd
 
-      - name: Wait for Argo CD auto-sync
+      - name: Sync and wait for Argo CD
         env:
           ARGOCD_PASSWORD: ${{ secrets.ARGOCD_CLI_PASSWORD }}
         run: |
           set -euo pipefail
           argocd login argocd-server.argocd --insecure --grpc-web --username admin --password "$ARGOCD_PASSWORD"
           argocd app get notification-service --refresh
-          argocd app wait notification-service --sync --health --timeout 300
+          argocd app sync notification-service --prune
+          argocd app wait notification-service --health --timeout 300
