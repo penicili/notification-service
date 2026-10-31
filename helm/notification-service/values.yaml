@@ -1,24 +1,19 @@
 replicaCount: 1
-
 image:
   repository: ghcr.io/penicili/notification-service
   pullPolicy: Always
-  tag: "sha-3666366"
-
+  tag: "sha-cf22a7f"
 # Set this when the GHCR package is private, for example:
 # imagePullSecrets:
 #   - name: ghcr-secret
 imagePullSecrets: []
-
 nameOverride: ""
 fullnameOverride: ""
-
 serviceAccount:
   create: false
   automount: false
   annotations: {}
   name: ""
-
 podAnnotations: {}
 podLabels: {}
 podSecurityContext:
@@ -30,7 +25,6 @@ securityContext:
   capabilities:
     drop:
       - ALL
-
 app:
   containerPort: 3000
   env:
@@ -50,26 +44,22 @@ app:
     limits:
       cpu: 500m
       memory: 256Mi
-
 service:
   type: ClusterIP
   port: 80
   targetPort: http
-
 livenessProbe:
   httpGet:
     path: /health
     port: http
   initialDelaySeconds: 15
   periodSeconds: 20
-
 readinessProbe:
   httpGet:
     path: /health
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10
-
 mailpit:
   # Mailpit untuk test/staging, disable di prod
   enabled: true
@@ -88,7 +78,6 @@ mailpit:
     limits:
       cpu: 200m
       memory: 128Mi
-
 ingress:
   enabled: true
   className: nginx
@@ -99,14 +88,12 @@ ingress:
         - path: /
           pathType: Prefix
   tls: []
-
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: null
-
 nodeSelector: {}
 tolerations: []
 affinity: {}
