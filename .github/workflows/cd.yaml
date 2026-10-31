@@ -1,0 +1,33 @@
+name: cd
+
+on:
+  workflow_run:
+    workflows: ci
+    types: completed
+    branches: master
+
+jobs:
+  cd:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: self-hosted
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+      - name: Set image tag
+        run: |
+          TAG="sha-$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)"
+          /tmp/yq -i ".image.tag = \"${TAG}\"" helm/notification-service/values.yaml
+      -
+        name: Install argoCD CLI
+        run: 
+          curl -ksSL -o argocd https://argocd-server.argocd/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv ./argocd /usr/local/bin/argocd
+      -
+        name: ArgoCD login sync
+        run: |
+          argocd login argocd-server.argocd --insecure --grpc-web --username admin --password ${{ secrets.ARGOCD_CLI_PASSWORD }}
+          argocd app sync notification-service
