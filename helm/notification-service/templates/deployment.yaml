@@ -58,7 +58,7 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.resources }}
+          {{- with .Values.app.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
