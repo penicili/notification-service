@@ -22,10 +22,6 @@ flowchart LR
     Ingress --> App
     App -->|SMTP| Mailpit
 ```
-
-Penjelasan lengkap komponen, alur deployment, keputusan teknis, dan
-keterbatasan disimpan terpisah di luar repository ini.
-
 ## Struktur repository
 
 ```text
