@@ -22,12 +22,16 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+    env: 
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
-      - name: Check out repository
+      - name: Check out deployment repository
         uses: actions/checkout@v7
         with:
+          repository: penicili/notification-service-deploy
           ref: master
-
+          token: ${{ secrets.DEPLOYMENT_REPO_TOKEN }}
+          
       - name: Promote image tag
         env:
           YQ_VERSION: v4.44.3
@@ -35,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="sha-$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)"
+          TAG="sha-${SOURCE_SHA:0:7}"
           echo "TAG=${TAG}" >> "$GITHUB_ENV"
 
           curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_${YQ_PLATFORM}" -o /tmp/yq
@@ -61,12 +65,27 @@ jobs:
           chmod +x /tmp/argocd
           sudo mv /tmp/argocd /usr/local/bin/argocd
 
-      - name: Sync and wait for Argo CD
+      - name: Wait for Argo CD deployment
         env:
           ARGOCD_PASSWORD: ${{ secrets.ARGOCD_CLI_PASSWORD }}
         run: |
           set -euo pipefail
-          argocd login argocd-server.argocd --insecure --grpc-web --username admin --password "$ARGOCD_PASSWORD"
-          argocd app get notification-service --refresh
-          argocd app sync notification-service --prune
-          argocd app wait notification-service --health --timeout 300
+
+          curl -kfsSL \
+            -o /tmp/argocd \
+            https://argocd-server.argocd/download/argocd-linux-amd64
+
+          chmod +x /tmp/argocd
+          sudo mv /tmp/argocd /usr/local/bin/argocd
+
+          argocd login argocd-server.argocd \
+            --insecure \
+            --grpc-web \
+            --username admin \
+            --password "$ARGOCD_PASSWORD"
+
+          argocd app wait notification-service \
+            --sync \
+            --health \
+            --timeout 300
+
