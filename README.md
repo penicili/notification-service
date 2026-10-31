@@ -47,9 +47,13 @@ Image sudah menyertakan `HEALTHCHECK` ke `/health`. Level log dapat diatur lewat
 --- 
 # Kube
 - namespace: notif
+- helm:
+```
+helm upgrade --install notification-service ./helm/notification-service --namespace notif --create-namespace --set-string image.tag=sha-630a495
+```
 - Forward UI mailpit
 ```
-kubectl port-forward service/mailtrap 8025:8025 -n notif
+kubectl port-forward service/ 8025:8025 -n notif
 ```
 - Test post endpoint via curl (POST)
 ```
