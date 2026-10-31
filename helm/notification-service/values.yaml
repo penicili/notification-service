@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/penicili/notification-service
   pullPolicy: Always
-  tag: "sha-cf22a7f"
+  tag: "sha-dbcde3d"
 # Set this when the GHCR package is private, for example:
 # imagePullSecrets:
 #   - name: ghcr-secret
