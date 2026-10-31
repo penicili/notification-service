@@ -17,7 +17,12 @@ jobs:
         with:
           ref: master
       - name: Set image tag
+        env:
+          VERSION: v4.44.3
+          PLATFORM: linux_amd64
         run: |
+          curl -L "https://github.com/mikefarah/yq/releases/download/${VERSION}/yq_${PLATFORM}" -o /tmp/yq
+          chmod +x /tmp/yq
           TAG="sha-$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)"
           /tmp/yq -i ".image.tag = \"${TAG}\"" helm/notification-service/values.yaml
       -
