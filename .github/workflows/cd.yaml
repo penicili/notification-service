@@ -27,7 +27,7 @@ jobs:
           /tmp/yq -i ".image.tag = \"${TAG}\"" helm/notification-service/values.yaml
       -
         name: Install argoCD CLI
-        run: 
+        run: |
           curl -ksSL -o argocd https://argocd-server.argocd/download/argocd-linux-amd64
           chmod +x argocd
           sudo mv ./argocd /usr/local/bin/argocd
