@@ -1,39 +1,55 @@
 # Notification Service
 
 Email notification microservice berbasis Express, Nodemailer, dan in-memory
-queue. Repository ini  menjadi proof of concept pipeline CI/CD end-to-end:
-GitHub Actions → GHCR → Argo CD → Kubernetes (kind).
+queue. Repository ini berisi **kode aplikasi dan pipeline CI/CD**. Konfigurasi
+deployment (Helm chart dan Argo CD Application) berada di repository terpisah:
+
+- Aplikasi dan pipeline: `penicili/notification-service` (repo ini)
+- Konfigurasi deployment: [`penicili/notification-service-deploy`](https://github.com/penicili/notification-service-deploy)
+
+Pemisahan ini membuat kode aplikasi dan konfigurasi environment punya riwayat
+commit, hak akses, dan siklus rilis yang berbeda.
 
 ## Arsitektur
 
 ```mermaid
 flowchart LR
-    Dev([Developer]) -->|git push| Repo[(GitHub)]
-    Repo -->|push| CI[GitHub Actions CI]
-    CI -->|build & push| GHCR[(GHCR)]
+    Dev([Developer]) -->|git push| AppRepo[(App repo)]
+    AppRepo -->|push| CI[GitHub Actions CI]
+    CI -->|build & push image| GHCR[(GHCR)]
     CI -->|workflow_run success| CD[GitHub Actions CD]
-    CD -->|commit values.yaml| Repo
-    Repo -->|GitOps| Argo[Argo CD]
+    CD -->|commit image.tag| DeployRepo[(Deploy repo)]
+    DeployRepo -->|GitOps auto-sync| Argo[Argo CD]
     Argo -->|pull image| GHCR
-    Argo -->|Helm| K8s[Kubernetes kind]
+    Argo -->|Helm chart| K8s[Kubernetes kind]
     K8s --> App[notification-service]
     K8s --> Mailpit[mailpit]
     User([Client]) --> Ingress[ingress-nginx]
     Ingress --> App
     App -->|SMTP| Mailpit
 ```
+
+Alur singkat:
+
+1. Push ke repo ini memicu CI: typecheck, build, test, lalu push image ke GHCR
+   dengan tag `sha-<commit>`.
+2. Setelah CI sukses, CD menulis `image.tag` ke `values.yaml` di **deploy
+   repo**, lalu commit dan push ke sana.
+3. Argo CD mendeteksi perubahan di deploy repo dan menerapkan chart Helm.
+
 ## Struktur repository
 
 ```text
 .github/workflows/
-  ci.yaml                    # test, build, push image
-  cd.yaml                    # promote image tag, commit, sync Argo CD
-src/                         # aplikasi Express
-helm/notification-service/   # chart deployment
-argocd/application.yaml      # definisi Argo CD Application
-runner-notification.yaml     # self-hosted runner (actions-runner-controller)
-legacy/k8s/                  # manifest lama, tidak dipakai Argo CD
+  ci.yaml        # test, build, push image ke GHCR
+  cd.yaml        # promote image tag ke deploy repo, tunggu Argo CD
+src/             # aplikasi Express
+Dockerfile
+package.json
 ```
+
+Yang **tidak** ada di repo ini: Helm chart, manifest Kubernetes, dan Argo CD
+Application. Semua ada di deploy repo.
 
 ## Menjalankan aplikasi secara lokal
 
@@ -67,38 +83,71 @@ npm test
 ```
 
 Test integrasi SMTP hanya berjalan jika `SMTP_TEST_TO` diisi. Tanpa variabel
-tersebut, test integrasi akan di-skip.
+tersebut, test integrasi akan di-skip. CI sengaja mengosongkan variabel ini
+karena `ubuntu-latest` tidak memiliki SMTP server.
 
-## Bootstrap Kubernetes
+## CI
 
-Prasyarat:
+`.github/workflows/ci.yaml` berjalan pada push ke `master`, pull request, dan
+manual dispatch, tetapi hanya jika ada perubahan pada:
 
-- Cluster kind dengan `ingress-nginx`.
-- Argo CD terpasang di namespace `argocd`.
-- actions-runner-controller dan GitHub token untuk runner.
-- Akses ke GHCR (image saat ini public).
+- `src/**`
+- `Dockerfile`
+- `package.json`, `package-lock.json`, `tsconfig.json`
+- `.github/workflows/ci.yaml`
 
-Apply Argo CD Application:
+Tahapannya:
+
+1. `npm ci`
+2. `npm run typecheck`
+3. `npm run build`
+4. `npm test`
+5. Build dan push image ke GHCR (hanya push/manual dispatch, bukan pull request).
+
+Image diberi tag `sha-<7 karakter commit>`, `master`, dan `latest`.
+
+## CD
+
+`.github/workflows/cd.yaml` berjalan setelah workflow CI sukses di `master`.
+Job berjalan di self-hosted runner di dalam cluster karena perlu mengakses
+`argocd-server.argocd`.
+
+Langkahnya:
+
+1. Checkout **deploy repo** menggunakan `DEPLOYMENT_REPO_TOKEN`.
+2. Hitung tag `sha-<commit>` dari commit yang diuji CI.
+3. Ubah `image.tag` di `helm/notification-service/values.yaml` memakai `yq`.
+4. Commit dan push ke deploy repo.
+5. Refresh Argo CD dan tunggu sampai aplikasi `Synced` dan `Healthy`.
+6. Verifikasi image tag benar-benar muncul di Argo CD.
+
+CD tidak melakukan sync manual karena Argo CD sudah memakai `automated` sync.
+Sync manual bisa bentrok dengan sync otomatis yang sedang berjalan.
+
+### Secret yang dibutuhkan
+
+| Secret | Fungsi |
+|---|---|
+| `DEPLOYMENT_REPO_TOKEN` | Token dengan akses `contents: write` ke deploy repo, untuk checkout dan push. |
+| `ARGOCD_CLI_PASSWORD` | Password user `admin` Argo CD untuk login CLI. |
+
+`GITHUB_TOKEN` hanya dipakai untuk push image ke GHCR.
+
+## Menjalankan deployment
+
+Bootstrap Argo CD Application dan self-hosted runner dilakukan dari deploy
+repo:
 
 ```bash
+git clone git@github.com:penicili/notification-service-deploy.git
+cd notification-service-deploy
+
 kubectl apply -f argocd/application.yaml
-kubectl get application -n argocd notification-service
-```
-
-Apply self-hosted runner:
-
-```bash
 kubectl apply -f runner-notification.yaml
-kubectl get runner -n actions-runner-system
 ```
 
-Runner harus memiliki label `notification-service` karena workflow CD memakai:
-
-```yaml
-runs-on:
-  - self-hosted
-  - notification-service
-```
+Prasyarat: cluster kind dengan `ingress-nginx`, Argo CD di namespace `argocd`,
+dan actions-runner-controller untuk runner.
 
 ## Demo end-to-end
 
@@ -115,7 +164,7 @@ kubectl get deploy -n notif notification-service \
 kubectl port-forward -n notif service/notification-service 3000:80
 ```
 
-Request endpoint
+Request endpoint:
 
 ```bash
 curl -i -X POST http://localhost:3000/notifications \
@@ -129,12 +178,11 @@ curl -i -X POST http://localhost:3000/notifications \
 
 ### 3. Lihat email di Mailpit
 
-Forward mailpit ui ke <http://localhost:8025>
 ```bash
 kubectl port-forward -n notif service/mailpit 8025:8025
 ```
 
-
+Buka <http://localhost:8025>.
 
 ### 4. Uji melalui Ingress
 
@@ -150,38 +198,11 @@ curl -i -X POST http://notification.test.com:8080/notifications \
   }'
 ```
 
-## CI/CD
-
-### CI
-
-`.github/workflows/ci.yaml` berjalan pada push ke `master` dan pull request
-yang menyentuh kode aplikasi. Tahapannya:
-
-1. `npm ci`
-2. `npm run typecheck`
-3. `npm run build`
-4. `npm test`
-5. Build dan push image ke GHCR (hanya pada push atau manual dispatch, bukan pull request).
-
-Image diberi tag `sha-<7 karakter commit>`, `master`, dan `latest`.
-
-### CD
-
-`.github/workflows/cd.yaml` berjalan setelah workflow CI sukses di `master`.
-CD akan:
-
-1. Menghitung tag `sha-<commit>`.
-2. Mengubah `helm/notification-service/values.yaml`.
-3. Commit dan push perubahan.
-4. Login ke Argo CD.
-5. Sync dan menunggu aplikasi sehat.
-
-Argo CD kemudian menarik image baru dan menerapkan chart Helm. Tidak ada
-`kubectl apply` manual di pipeline.
-
 ## Konfigurasi
 
-Nilai utama ada di `helm/notification-service/values.yaml`.
+Semua nilai environment (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM`,
+resource, ingress, Mailpit, dan HPA) ada di
+`helm/notification-service/values.yaml` pada **deploy repo**, bukan di repo ini.
 
 | Variabel | Default | Keterangan |
 |---|---|---|
@@ -206,7 +227,12 @@ commit ke Git.
 - Secret masih berupa nilai Helm; gunakan Sealed Secrets/External Secrets/SOPS
   untuk environment nyata.
 - Self-hosted runner tidak boleh dipakai untuk workflow pull request dari fork.
+- Image memakai tag, bukan digest; pin ke digest dan image signing belum
+  diterapkan.
 
 ## Dokumentasi tambahan
 
-- [Legacy Kubernetes manifests](legacy/k8s/README.md)
+- [Deploy repo](https://github.com/penicili/notification-service-deploy) —
+  Helm chart, Argo CD Application, dan runner manifest.
+- [Legacy Kubernetes manifests](https://github.com/penicili/notification-service-deploy/tree/master/legacy/k8s)
+  — manifest lama, tidak dipakai Argo CD.

@@ -21,7 +21,7 @@ jobs:
       - notification-service
     timeout-minutes: 15
     permissions:
-      contents: write
+      contents: read
     env: 
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
@@ -65,18 +65,13 @@ jobs:
           chmod +x /tmp/argocd
           sudo mv /tmp/argocd /usr/local/bin/argocd
 
+      # Argo CD sudah memakai auto-sync. Job ini tidak memicu sync manual
+      # (itu bisa bentrok dengan sync otomatis), cukup refresh lalu menunggu.
       - name: Wait for Argo CD deployment
         env:
           ARGOCD_PASSWORD: ${{ secrets.ARGOCD_CLI_PASSWORD }}
         run: |
           set -euo pipefail
-
-          curl -kfsSL \
-            -o /tmp/argocd \
-            https://argocd-server.argocd/download/argocd-linux-amd64
-
-          chmod +x /tmp/argocd
-          sudo mv /tmp/argocd /usr/local/bin/argocd
 
           argocd login argocd-server.argocd \
             --insecure \
@@ -84,8 +79,21 @@ jobs:
             --username admin \
             --password "$ARGOCD_PASSWORD"
 
+          argocd app get notification-service --refresh
           argocd app wait notification-service \
             --sync \
             --health \
             --timeout 300
+
+          # Pastikan image yang berjalan benar-benar tag dari commit ini.
+          for _ in $(seq 1 30); do
+            if argocd app get notification-service -o json | grep -q "$TAG"; then
+              echo "Deployed image ${TAG}"
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Image ${TAG} tidak terlihat di Argo CD setelah menunggu." >&2
+          exit 1
 
